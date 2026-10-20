@@ -24,7 +24,7 @@
 //! - `OrderBy` — ORDER BY
 //! - `Service` — SPARQL SERVICE (v0.16.0) → inline VALUES from remote endpoint
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use pgrx::prelude::*;
 use spargebra::algebra::{Expression, GraphPattern};
@@ -488,6 +488,39 @@ impl Fragment {
                     .insert(var, format!("COALESCE({existing}, {col})"));
             } else {
                 self.bindings.insert(var, col);
+            }
+        }
+    }
+
+    /// `merge` for a SPARQL Join whose shared variables in `certain` are bound on both sides in
+    /// every solution (see `translate::join::certain_vars`): those join on plain `=` (no
+    /// `IS NULL OR`, no `COALESCE`), which lets Postgres use hash and merge joins.
+    ///
+    /// FORK-JOIN-NULLSAFE-01: the null-safe form is only needed when one side may leave the
+    /// variable unbound (OPTIONAL, UNION, VALUES with UNDEF). Applied to every join it made a
+    /// sub-SELECT joined to `?s ?p ?o` a nested loop over the whole graph per subject
+    /// (Overachiever, Oct 2026: 484 subjects × 5,750 triples = 2.8 M comparisons per read).
+    pub(crate) fn merge_certain(&mut self, other: Fragment, certain: &HashSet<String>) {
+        for (alias, tbl) in other.from_items {
+            self.from_items.push((alias, tbl));
+        }
+        for cond in other.conditions {
+            self.conditions.push(cond);
+        }
+        for (var, col) in other.bindings {
+            match self.bindings.get(&var).cloned() {
+                Some(existing) if certain.contains(&var) => {
+                    self.conditions.push(format!("{existing} = {col}"));
+                }
+                Some(existing) => {
+                    self.conditions
+                        .push(format!("({existing} IS NULL OR {existing} = {col})"));
+                    self.bindings
+                        .insert(var, format!("COALESCE({existing}, {col})"));
+                }
+                None => {
+                    self.bindings.insert(var, col);
+                }
             }
         }
     }

@@ -77,61 +77,59 @@ pub fn extract_bgp_pattern_vars(pattern: &spargebra::algebra::GraphPattern) -> V
 
 // ─── Cycle detection ──────────────────────────────────────────────────────────
 
-/// Detect whether a BGP variable adjacency graph contains a cycle.
+/// Detect whether a BGP is cyclic, i.e. not alpha-acyclic as a hypergraph whose hyperedges are the
+/// variable sets of its triple patterns (GYO reduction: repeatedly drop variables that occur in
+/// only one pattern and patterns whose variables are a subset of another pattern's; the BGP is
+/// acyclic iff at most one pattern is left).
+///
+/// FORK-WCOJ-CYCLE-01: the previous check joined every pair of variables *within* a pattern into a
+/// variable graph, so a single `?s ?p ?o` already formed a triangle and every star like
+/// `?s a :T ; :user :u . ?s ?p ?o` was reported cyclic. That turned on the WCOJ planner hint
+/// (`enable_hashjoin = off`, `join_collapse_limit = 1`) for plain star reads and forced nested
+/// loops over the whole graph (Overachiever, Oct 2026: 27 ms → 150–1000 ms per history read).
 pub fn detect_cyclic_bgp(pattern_vars: &[Vec<String>]) -> bool {
     if pattern_vars.len() < 3 {
         return false;
     }
-    let mut adj: HashMap<String, HashSet<String>> = HashMap::new();
-    for vars in pattern_vars {
-        for i in 0..vars.len() {
-            for j in (i + 1)..vars.len() {
-                let a = &vars[i];
-                let b = &vars[j];
-                if a != b {
-                    adj.entry(a.clone()).or_default().insert(b.clone());
-                    adj.entry(b.clone()).or_default().insert(a.clone());
-                }
+    let mut edges: Vec<HashSet<String>> = pattern_vars
+        .iter()
+        .map(|vars| vars.iter().cloned().collect::<HashSet<String>>())
+        .filter(|e| !e.is_empty())
+        .collect();
+    loop {
+        let mut changed = false;
+        let mut count: HashMap<String, usize> = HashMap::new();
+        for e in &edges {
+            for v in e {
+                *count.entry(v.clone()).or_default() += 1;
             }
         }
-    }
-    let nodes: Vec<String> = adj.keys().cloned().collect();
-    let mut visited: HashSet<String> = HashSet::new();
-    let mut rec_stack: HashSet<String> = HashSet::new();
-    for node in &nodes {
-        if !visited.contains(node) && has_cycle_dfs(node, None, &adj, &mut visited, &mut rec_stack)
-        {
+        for e in edges.iter_mut() {
+            let before = e.len();
+            e.retain(|v| count.get(v).copied().unwrap_or(0) > 1);
+            changed |= e.len() != before;
+        }
+        let mut i = 0;
+        while i < edges.len() {
+            let ear = edges[i].is_empty()
+                || edges
+                    .iter()
+                    .enumerate()
+                    .any(|(j, f)| j != i && edges[i].is_subset(f));
+            if ear {
+                edges.swap_remove(i);
+                changed = true;
+            } else {
+                i += 1;
+            }
+        }
+        if edges.len() <= 1 {
+            return false;
+        }
+        if !changed {
             return true;
         }
     }
-    false
-}
-
-fn has_cycle_dfs(
-    node: &str,
-    parent: Option<&str>,
-    adj: &HashMap<String, HashSet<String>>,
-    visited: &mut HashSet<String>,
-    rec_stack: &mut HashSet<String>,
-) -> bool {
-    visited.insert(node.to_owned());
-    rec_stack.insert(node.to_owned());
-    if let Some(neighbors) = adj.get(node) {
-        for neighbor in neighbors {
-            if parent.is_some_and(|p| p == neighbor) {
-                continue;
-            }
-            if !visited.contains(neighbor.as_str()) {
-                if has_cycle_dfs(neighbor, Some(node), adj, visited, rec_stack) {
-                    return true;
-                }
-            } else if rec_stack.contains(neighbor.as_str()) {
-                return true;
-            }
-        }
-    }
-    rec_stack.remove(node);
-    false
 }
 
 #[cfg(any(test, feature = "pg_test"))]
@@ -182,5 +180,37 @@ mod tests {
     #[test]
     fn test_single_not_cyclic() {
         assert!(!detect_cyclic_bgp(&[vec!["a".to_owned(), "b".to_owned()]]));
+    }
+
+    fn vs(names: &[&str]) -> Vec<String> {
+        names.iter().map(|n| (*n).to_owned()).collect()
+    }
+
+    /// FORK-WCOJ-CYCLE-01: three variables in one pattern are not a cycle.
+    #[test]
+    fn test_star_with_unbound_predicate_is_acyclic() {
+        // ?s a :T ; :user :u ; :clientId ?c . ?s ?p ?o
+        let p = vec![vs(&["s"]), vs(&["s"]), vs(&["s", "c"]), vs(&["s", "p", "o"])];
+        assert!(!detect_cyclic_bgp(&p));
+        // ?s :user :u ; :partOf ?w . ?s ?p ?o
+        assert!(!detect_cyclic_bgp(&[vs(&["s"]), vs(&["s", "w"]), vs(&["s", "p", "o"])]));
+    }
+
+    #[test]
+    fn test_two_patterns_sharing_two_vars_is_acyclic() {
+        // ?s :a ?o . ?s :b ?o . ?o :c ?x (alpha-acyclic: no WCOJ needed)
+        assert!(!detect_cyclic_bgp(&[vs(&["s", "o"]), vs(&["s", "o"]), vs(&["o", "x"])]));
+    }
+
+    #[test]
+    fn test_triangle_with_star_arms_is_cyclic() {
+        let p = vec![
+            vs(&["a", "b"]),
+            vs(&["b", "c"]),
+            vs(&["c", "a"]),
+            vs(&["a", "x"]),
+            vs(&["b", "p", "o"]),
+        ];
+        assert!(detect_cyclic_bgp(&p));
     }
 }
