@@ -190,16 +190,29 @@ mod tests {
     #[test]
     fn test_star_with_unbound_predicate_is_acyclic() {
         // ?s a :T ; :user :u ; :clientId ?c . ?s ?p ?o
-        let p = vec![vs(&["s"]), vs(&["s"]), vs(&["s", "c"]), vs(&["s", "p", "o"])];
+        let p = vec![
+            vs(&["s"]),
+            vs(&["s"]),
+            vs(&["s", "c"]),
+            vs(&["s", "p", "o"]),
+        ];
         assert!(!detect_cyclic_bgp(&p));
         // ?s :user :u ; :partOf ?w . ?s ?p ?o
-        assert!(!detect_cyclic_bgp(&[vs(&["s"]), vs(&["s", "w"]), vs(&["s", "p", "o"])]));
+        assert!(!detect_cyclic_bgp(&[
+            vs(&["s"]),
+            vs(&["s", "w"]),
+            vs(&["s", "p", "o"])
+        ]));
     }
 
     #[test]
     fn test_two_patterns_sharing_two_vars_is_acyclic() {
         // ?s :a ?o . ?s :b ?o . ?o :c ?x (alpha-acyclic: no WCOJ needed)
-        assert!(!detect_cyclic_bgp(&[vs(&["s", "o"]), vs(&["s", "o"]), vs(&["o", "x"])]));
+        assert!(!detect_cyclic_bgp(&[
+            vs(&["s", "o"]),
+            vs(&["s", "o"]),
+            vs(&["o", "x"])
+        ]));
     }
 
     #[test]

@@ -115,7 +115,11 @@ pub(crate) fn certain_vars(p: &GraphPattern) -> HashSet<String> {
         } => variables
             .iter()
             .enumerate()
-            .filter(|(i, _)| bindings.iter().all(|row| row.get(*i).is_some_and(Option::is_some)))
+            .filter(|(i, _)| {
+                bindings
+                    .iter()
+                    .all(|row| row.get(*i).is_some_and(Option::is_some))
+            })
             .map(|(_, v)| v.as_str().to_owned())
             .collect(),
         // Group (aggregates may be unbound), Service (remote) and anything new: nothing assumed.
@@ -128,7 +132,10 @@ mod certain_tests {
     use super::*;
 
     fn algebra(q: &str) -> GraphPattern {
-        match spargebra::SparqlParser::new().parse_query(q).expect("parse") {
+        match spargebra::SparqlParser::new()
+            .parse_query(q)
+            .expect("parse")
+        {
             spargebra::Query::Select { pattern, .. } => pattern,
             _ => panic!("not a SELECT"),
         }
@@ -149,9 +156,18 @@ mod certain_tests {
 
     #[test]
     fn optional_and_union_and_undef_are_not_certain() {
-        assert_eq!(certain("SELECT * WHERE { ?s <x:a> ?a OPTIONAL { ?s <x:b> ?b } }"), ["a", "s"]);
-        assert_eq!(certain("SELECT * WHERE { { ?s <x:a> ?a } UNION { ?s <x:b> ?b } }"), ["s"]);
-        assert_eq!(certain("SELECT * WHERE { VALUES (?x ?y) { (1 2) (3 UNDEF) } }"), ["x"]);
+        assert_eq!(
+            certain("SELECT * WHERE { ?s <x:a> ?a OPTIONAL { ?s <x:b> ?b } }"),
+            ["a", "s"]
+        );
+        assert_eq!(
+            certain("SELECT * WHERE { { ?s <x:a> ?a } UNION { ?s <x:b> ?b } }"),
+            ["s"]
+        );
+        assert_eq!(
+            certain("SELECT * WHERE { VALUES (?x ?y) { (1 2) (3 UNDEF) } }"),
+            ["x"]
+        );
         assert_eq!(certain("SELECT ?s WHERE { ?s <x:a> ?a }"), ["s"]);
     }
 }
