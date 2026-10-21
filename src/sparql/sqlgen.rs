@@ -466,33 +466,7 @@ impl Fragment {
         }
     }
 
-    /// Merge `other` into `self`, adding equality conditions for shared variables.
-    pub(crate) fn merge(&mut self, other: Fragment) {
-        for (alias, tbl) in other.from_items {
-            self.from_items.push((alias, tbl));
-        }
-        for cond in other.conditions {
-            self.conditions.push(cond);
-        }
-        for (var, col) in other.bindings {
-            if let Some(existing) = self.bindings.get(&var).cloned() {
-                // Variable already bound in both sides.
-                // Use SPARQL-compatible null-safe join: if the existing binding is
-                // NULL (unbound from an OPTIONAL), the other side's value fills in.
-                // This matches SPARQL semantics: unbound variables are compatible
-                // with any binding from the other side (e.g. VALUES after OPTIONAL).
-                self.conditions
-                    .push(format!("({existing} IS NULL OR {existing} = {col})"));
-                // Update binding to prefer the non-NULL value.
-                self.bindings
-                    .insert(var, format!("COALESCE({existing}, {col})"));
-            } else {
-                self.bindings.insert(var, col);
-            }
-        }
-    }
-
-    /// `merge` for a SPARQL Join whose shared variables in `certain` are bound on both sides in
+    /// Merge `other` into `self` for a SPARQL Join. Shared variables in `certain` are bound on both sides in
     /// every solution (see `translate::join::certain_vars`): those join on plain `=` (no
     /// `IS NULL OR`, no `COALESCE`), which lets Postgres use hash and merge joins.
     ///
