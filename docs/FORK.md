@@ -112,6 +112,29 @@ promotes). `shacl_query_hints` and `shacl_sparql_hints` outputs unchanged.
 **Image (2026-10-09):** overlay on `dev@sha256:d2392acc…` → `ghcr.io/overachiever-eu/pg-ripple:dev` and
 `:nested-opt-01`, digest `sha256:dc44f7ee7ee57c6aab976534de0a40e0672fdb42b864bfbb77587e01efe8cbf8` (main `01aa1fd5`).
 
+## FORK-WCOJ-CYCLE-01 / FORK-JOIN-NULLSAFE-01: star reads plan as hash joins
+
+**Symptom (coach-kg, Oct 2026):** the whole-node read `SELECT ?s ?p ?o WHERE { GRAPH <g> { { SELECT ?s WHERE { ?s :user <u> ; :partOf ?w } } ?s ?p ?o } }`
+took 150–1000 ms on a tenant with ~5,800 triples (27 ms with a hash join), and made a 26-workout history import
+take 42 s. Coach-kg works around it (flat star + `pg_ripple.wcoj_enabled = off` and `enable_nestloop = off` scoped to
+the read, coach-kg #297/#300); these patches fix the translation itself.
+
+**FORK-WCOJ-CYCLE-01 (`src/sparql/wcoj/mod.rs`):** `detect_cyclic_bgp` linked every pair of variables *within* a
+triple pattern, so one `?s ?p ?o` was already a triangle and every star with an unbound predicate counted as
+cyclic. That switched on the WCOJ planner hint (`enable_hashjoin = off`, `join_collapse_limit = 1`). Now a GYO
+reduction (alpha-acyclicity of the hypergraph of pattern variable sets): stars, chains and patterns that share
+two variables are acyclic; a triangle (with or without arms) stays cyclic. Unit tests in the module.
+
+**FORK-JOIN-NULLSAFE-01 (`src/sparql/translate/join.rs`, `Fragment::merge_certain`):** every SPARQL Join merged
+shared variables as `(l IS NULL OR l = r)` + `COALESCE(l, r)`, which Postgres can only run as a nested loop. The
+null-safe form is only needed when a side may leave the variable unbound. `certain_vars` computes the variables a
+pattern binds in every solution (conservative: BGP/path terms, Join/Lateral union, LeftJoin/Minus left side, Union
+intersection, Values columns without UNDEF, Project filter; Group/Service/others nothing), and shared variables
+certain on both sides join on plain `=`. Same results: for non-null values both forms are equal. Unit tests for
+sub-SELECT + star, OPTIONAL, UNION and VALUES/UNDEF.
+
+**Image:** not built or deployed yet (needs the coach-kg owner's go-ahead).
+
 ## How we build the image
 
 Upstream publishes via `.github/workflows/release.yml` → `docker/build-push-action` on `Dockerfile` to `ghcr.io/trickle-labs/pg-ripple`. Local equivalent:
