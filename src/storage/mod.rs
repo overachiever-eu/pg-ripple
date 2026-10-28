@@ -30,6 +30,7 @@ pub mod catalog;
 pub mod cdc_bridge;
 pub mod index_advisor;
 pub mod merge;
+pub(crate) mod merge_catchup;
 pub mod mutation_journal;
 pub(crate) mod promote;
 

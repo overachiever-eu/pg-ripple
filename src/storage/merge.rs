@@ -529,6 +529,10 @@ pub fn merge_predicate(pred_id: i64) -> i64 {
         );
     }
 
+    // MERGE-CATCHUP-01: keep delta rows committed after Step 1's snapshot (see merge_catchup).
+    let caught_up = super::merge_catchup::catch_up_delta(pred_id, &main, &delta, dedup_on_merge);
+    let row_count = row_count + caught_up;
+
     // v0.37.0: Atomically update _pg_ripple.statements SID-range catalog in the
     // same transaction as the VP table swap. This prevents a race where the merge
     // worker is killed mid-update and leaves a stale SID→OID mapping for RDF-star
