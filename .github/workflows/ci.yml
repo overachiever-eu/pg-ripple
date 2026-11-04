@@ -395,7 +395,7 @@ jobs:
             resource_pressure_raw.txt
             system_qualification_environment.txt
           if-no-files-found: error
-          retention-days: 90
+          retention-days: 14
 
       - name: Stop pgrx PostgreSQL 18
         if: always()
@@ -945,7 +945,7 @@ jobs:
           name: owl2rl-source
           path: tests/owl2rl/data/all.rdf
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 14
 
   # v0.61.0: SPARQL Entailment Regime test suite (blocking)
   entailment-suite:
@@ -1256,7 +1256,7 @@ jobs:
             bsbm_query_raw.txt
             bsbm_result.json
           if-no-files-found: error
-          retention-days: 90
+          retention-days: 14
 
       - name: Stop pgrx PostgreSQL 18
         if: always()

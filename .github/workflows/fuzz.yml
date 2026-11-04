@@ -83,4 +83,4 @@ jobs:
             fuzz/corpus/${{ matrix.target }}/
             fuzz/artifacts/${{ matrix.target }}/
           if-no-files-found: ignore
-          retention-days: 30
+          retention-days: 14
