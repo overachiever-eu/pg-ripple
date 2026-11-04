@@ -400,7 +400,7 @@ jobs:
         with:
           name: release-${{ matrix.artifact_suffix }}
           path: dist/*.${{ matrix.archive_ext }}
-          retention-days: 30
+          retention-days: 14
           if-no-files-found: error
 
   # ── 4. Create GitHub release ─────────────────────────────────────────────────
