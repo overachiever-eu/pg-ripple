@@ -19,4 +19,8 @@ ignore = [
     # See audit.toml at the repo root for the full triage note.
     "RUSTSEC-2026-0194",
     "RUSTSEC-2026-0195",
+    # chrono is unmaintained (RUSTSEC-2026-0543) and has no patched release.
+    # Direct dependency, used for SPARQL xsd:dateTime only. Replacing it with
+    # jiff or time is a separate migration. See the note in ../audit.toml.
+    "RUSTSEC-2026-0543",
 ]
