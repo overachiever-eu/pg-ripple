@@ -2,8 +2,9 @@ name: Scheduled Fuzz
 
 on:
   schedule:
-    # Nightly fuzz run: each target runs for 120 seconds (FUZZ-DURATION-01 v0.75.0).
-    - cron: "0 2 * * *"
+    # Weekly fuzz run (Sundays 02:00 UTC): each target runs for 120 seconds (FUZZ-DURATION-01 v0.75.0).
+    # Was nightly; weekly since 25 Nov 2026 to save hosted Actions minutes.
+    - cron: "0 2 * * 0"
   workflow_dispatch:
     inputs:
       duration:
