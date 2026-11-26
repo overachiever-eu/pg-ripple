@@ -112,6 +112,10 @@ def main() -> int:
     # are low-level codec helpers not meant for direct user invocation.
     INTERNAL_ALLOWLIST: frozenset[str] = frozenset({
         "decode_numeric_spi",
+        # SUM/AVG promotion helper. Generated SQL calls it, so it stays
+        # pg_extern, but it is not a user-facing API. Already classified
+        # internal in scripts/sql_allowlist.toml.
+        "numeric_type_code_spi",
         "encode_lang_literal",
         "encode_typed_literal",
         "flush_encode_cache",

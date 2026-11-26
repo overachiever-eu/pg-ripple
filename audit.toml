@@ -63,6 +63,15 @@ ignore = [
     # oxrdfxml/oxttl (the maintained oxigraph parser family).
     { id = "RUSTSEC-2026-0194", reason = "quick-xml pinned by unmaintained rio_xml (direct dep, RDF/XML bulk load) and oxigraph dev-dep chain; no fixed release available; DoS-only, requires a trusted DB role", expires = "2027-02-26" },
     { id = "RUSTSEC-2026-0195", reason = "quick-xml pinned by unmaintained rio_xml (direct dep, RDF/XML bulk load) and oxigraph dev-dep chain; no fixed release available; DoS-only, requires a trusted DB role", expires = "2027-02-26" },
+    # chrono: RUSTSEC-2026-0543 marks every published version unmaintained and
+    # names jiff/time as replacements. There is no patched chrono release.
+    # pg_ripple uses chrono only to format and compare SPARQL xsd:dateTime
+    # values inside the server; it is not a TLS or network stack. Replacing it
+    # is a separate API migration. cargo-deny leaves unmaintained = "none", so
+    # this ignore exists for `cargo audit --deny unmaintained`.
+    # Expiry: 2027-05-25 — drop this once the date/time code no longer depends
+    # on chrono, or if a maintained chrono release appears.
+    { id = "RUSTSEC-2026-0543", reason = "chrono has no patched release; direct dep used for SPARQL xsd:dateTime only; replacement is a separate migration", expires = "2027-05-25" },
 ]
 
 # pg_trgm: PostgreSQL contrib module used for fuzzy SPARQL (v0.87.0 CONF-SBOM-01)

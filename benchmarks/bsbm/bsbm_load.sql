@@ -15,6 +15,7 @@
 --   rev:    http://purl.org/stuff/rev#
 --   xsd:    http://www.w3.org/2001/XMLSchema#
 
+CREATE EXTENSION IF NOT EXISTS pg_ripple;
 SET search_path TO pg_ripple, public;
 
 \if :{?scale}
